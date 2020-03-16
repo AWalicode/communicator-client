@@ -1,13 +1,12 @@
 const { app, BrowserWindow, ipcMain, net } = require('electron')
 const fs = require('fs')
-const SockJS = require('sockjs-client');
-//const Stomp = require('stompjs');
-const WebSocket = require('ws');
+var Stomp = require('stompjs')
+var SockJS = require('sockjs-client')
 
 var win,
     settings,
     user,
-    socket,
+    sock,
     stompClient
 
 init();
@@ -48,6 +47,9 @@ function createMainWindow () {
   }
   win.webContents.openDevTools()
   win.on('closed', () =>{
+    if(stompClient){
+      stompClient.disconnect();
+    }
     win = null;
   })
 }
@@ -61,41 +63,25 @@ function login(e, credential){
   request(`${settings.url}/authorize`, postData, "POST", {"content-type":"application/json"}, (response)=>{
     let data = JSON.parse(response)
     if(data.code!=200){
-      e.sender.send('error-channel', data.message)
+      win.sender.send('error-channel', data.message)
     }else{
       user=data.body
       user.password = credential.password
       win.loadFile('rendered/main.html')
     }
   }, (code, data)=>{
-    e.sender.send('error-channel', `Error: ${code}. Connection refused!`)
+    win.sender.send('error-channel', `Error: ${code}. Connection refused!`)
   })
 }
 
 ipcMain.on("load-main-channel", (e) =>{
-  console.log(user)
-  socket = new SockJS(settings.url+"/websocket")
-  // stompClient = Stomp.over(socket);
-  // //stompClient = Stomp.overWS('http://localhost:8080/communicator/websocket');
-  // stompClient.connect({}, function (frame) {
-  //   console.log("connect")
-  //     stompClient.subscribe('/message/receiv/' + user.id, function (message) {
-  //       let body = JSON.parse(message.body);
-  //       processMessage(body)
-  //   });
-  // }, function (error){
-  //   console.log(error)
-  // })
-  const ws = new WebSocket(socket);
+  sock= new SockJS(`${settings.url}/websocket`);
+  stompClient = Stomp.over(sock);
+  stompClient.connect({}, function (frame) {
+      console.log('Connected: ' + frame);
+      stompClient.subscribe(`/message/receiv/${user.id}`, processMessage);
+  },(error)=>{console.log(error);});
 
-  ws.on('open', function open() {
-    ws.send('something');
-  });
-
-  ws.on('message', function incoming(data) {
-    console.log(data);
-  });
-  console.log("connected")
   request(`${settings.url}/contacts`, null, "GET", null, (chunk)=>{
     let data = JSON.parse(chunk)
     if(data.code!=200){
@@ -118,58 +104,109 @@ ipcMain.on("load-main-channel", (e) =>{
   })
 })
 
-ipcMain.on("send-message-channel", (e, data) =>{
-  console.log(e.sender.uuid)
-  console.log(data)
-  stompClient.send("/app/message/send", {}, JSON.stringify({'content': data.message, 'writeTime': new Date().getTime(), 'idUser': user.id, 'uuidConversation': e.sender.uuid}));
+ipcMain.on("init-conversation-channel", (e, data) =>{
+  let callback = function(messages){
+    e.sender.send("init-conversation-response-channel", JSON.stringify({"idUser": user.id, "messages": messages}))
+  }
+  getMessages(e.sender.uuid, 0, callback)
 })
 
-function processMessage(message){
-  console.log(message)
+ipcMain.on("send-message-channel", (e, data) =>{
+  try{
+    stompClient.send("/app/message/send", {}, JSON.stringify({'content': data.message, 'writeTime': new Date().getTime(), 'idUser': user.id, 'uuidConversation': e.sender.uuid}));
+  }catch(e){
+    console.log(e)
+  }
+})
+
+var processMessage = function(messageResponse){
+  let message = JSON.parse(messageResponse.body);
+  let sendMessageToConversationView = (window)=>{
+    window.webContents.send("message-comming-channel", message)
+  }
+  openConversation(message.uuidConversation, sendMessageToConversationView)
+};
+
+function getMessages(uuid, offset, callback){
+  request(`${settings.url}/messages/get/${uuid}/${offset}`, null, "GET", null, (response)=>{
+    let data = JSON.parse(response)
+    if(data.code!=200){
+      console.log(data)
+      win.webContents.send('error-channel', data.message)
+    }else{
+      callback(data.body)
+    }
+    }, (code, response)=>{
+      win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
+    })
 }
 
 ipcMain.on("create-conversation-channel", (e, data) =>{
+  createConversationRequestByUserNicks(data)
+})
+
+function createConversationRequestByUserNicks(data){
   var postData = JSON.stringify(data);
   request(`${settings.url}/conferences/add`, postData, "POST", {"content-type":"application/json"}, (response)=>{
     let data = JSON.parse(response)
     if(data.code!=200){
-      e.sender.send('error-channel', data.message)
+      win.webContents.send('error-channel', data.message)
     }else{
-      openConversation(data.body)
+      openConversation(data.body.uuid)
     }
     }, (code, response)=>{
-      e.sender.send('error-channel', `Error: ${code}. Connection refused!`)
+      win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
     })
-})
+}
 
-function openConversation(conversation){
-  console.log(conversation)
-  let found = false;
+function openConversation(uuid, callbackAfterOpen){
+  let found = findConversationWindow(uuid)
+  if(found==null){
+    let callback = (response)=>{
+      let data = JSON.parse(response)
+      if(data.code!=200){
+        win.webContents.send('error-channel', data.message)
+      }else{
+        let conversation = data.body
+        conversationWindow = new BrowserWindow({
+         width: 700,
+         height: 800,
+         title: conversation.name,
+         resizable: false,
+         webPreferences: {
+           nodeIntegration: true
+         }
+       })
+       conversationWindow.webContents.uuid = uuid
+       conversationWindow.loadFile('rendered/conversation.html')
+       conversationWindow.webContents.openDevTools()
+       if(callbackAfterOpen)
+        callbackAfterOpen(conversationWindow)
+      }
+    }
+    getConversationRequest(uuid, callback)
+ }else{
+   found.show();
+   callbackAfterOpen(found)
+ }
+}
+
+function getConversationRequest(uuid, callback){
+  let conversation
+  request(`${settings.url}/conversations/get/${uuid}`, null, "GET", null, callback, (code, response)=>{
+    win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
+  })
+  return conversation;
+}
+
+function findConversationWindow(uuid){
+  let result = null
   BrowserWindow.getAllWindows().forEach(w=>{
-    if(w.webContents.uuid==conversation.uuid){
-      found=true;
-      w.show()
+    if(w.webContents.uuid==uuid){
+      result = w;
     }
   })
-  if(!found){
-    console.log("create conversation")
-    conversationWindow = new BrowserWindow({
-     width: 700,
-     height: 800,
-     title: conversation.name,
-     resizable: false,
-     webPreferences: {
-       nodeIntegration: true
-     }
-   })
-   conversationWindow.once('ready-to-show', () => {
-     console.log("ASDASD")
-     conversationWindow.webContents.send('conversation-init-channel', conversation);
-   })
-   conversationWindow.webContents.uuid = conversation.uuid
-   conversationWindow.loadFile('rendered/conversation.html')
-   conversationWindow.webContents.openDevTools()
-  }
+  return result;
 }
 
 function request(url, postData, method, headers, success, error){

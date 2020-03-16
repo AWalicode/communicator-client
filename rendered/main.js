@@ -8,6 +8,9 @@ ipcRenderer.on("users-channel", (e, users)=>{
     addUser(user)
   })
 })
+ipcRenderer.on("error-channel", (e, error)=>{
+  console.log(error)
+})
 
 function addUser(user){
   let tr = document.createElement('tr');

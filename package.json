@@ -17,6 +17,6 @@
   "dependencies": {
     "jquery": "^3.4.1",
     "sockjs-client": "^1.4.0",
-    "ws": "^7.2.3"
+    "stompjs": "^2.3.3"
   }
 }
