@@ -2,14 +2,21 @@
   "name": "communicator",
   "version": "1.0.0",
   "description": "Call of Code Software warfare",
-  "main": "main.js",
+  "main": "app.js",
   "scripts": {
     "test": "test",
-    "start": "electron ."
+    "start": "electron .",
+    "watch": "nodemon --exec electron ."
   },
   "author": "Aleksander Wostal",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^8.1.1"
+    "electron": "^8.1.1",
+    "nodemon": "^1.18.9"
+  },
+  "dependencies": {
+    "jquery": "^3.4.1",
+    "sockjs-client": "^1.4.0",
+    "ws": "^7.2.3"
   }
 }

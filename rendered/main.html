@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>Communicator</title>
+		<link href="style/bootstrap.css" rel="stylesheet">
+		<link href="style/style.css" rel="stylesheet">
+		<link href="style/fontello-codes.css" rel="stylesheet">
+		<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+	</head>
+	<body
+	style="background-image: url('img/background.png');">
+	<img src="img/napis.png" width="300px" class="mx-auto d-block">
+	<div class="row mt-3">
+		<div id='userList' class='col-sm-6'>
+		<h5 class="color-text lcd">Comrades</h5>
+		<hr class="dashed-line">
+			<table>
+				<thead>
+					<tr>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody id="users">
+				</tbody>
+			</table>
+		</div>
+		<div id='conferenceList' class="col-sm-6">
+			<h5 class="color-text lcd">Conferences</h5>
+			<hr class="dashed-line">
+			<table>
+				<thead>
+					<tr>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody id="conferences">
+						<tr>
+							<td ondblclick='openConversation(uuid)' class="noselect pointer color-text conference"><i class="demo-icon icon-anonymouses"></i>
+								conferencename<a href="#" style="float: right;" onclick='removeUserFromConversation("uuid")'><i class="demo-icon icon-user-delete delete-btn"></i></a></td>
+						</tr>
+					</c:forEach>
+				</tbody>
+			</table>
+		</div>
+	</div>
+	<hr class="dashed-line">
+	<div id="conversationControl" style="display: none;">
+		<div id="conversationUsers"></div>
+		<input name="conversationName" class="login"
+			placeholder="Conference title" onkeydown="if (event.keyCode == 13) { startConversationBtnClick(); return false;}"/>
+		<button onclick="createConferenceBtnClick()" class="btn btn-lg btn-block btn-main lcd">Call</button>
+	</div>
+</body>
+<script>
+	require("./main")
+</script>
+</html>

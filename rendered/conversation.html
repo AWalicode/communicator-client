@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<link href="style/bootstrap.css" rel="stylesheet">
+		<link href="style/style.css" rel="stylesheet">
+		<link href="style/fontello-codes.css" rel="stylesheet">
+		<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+	</head>
+	<body style="background-image: url('./img/background.png');">
+	<div>
+		<input type"text" id="searchText" class="login input-sm"></input>
+		<a href="#" onclick="searchMessage()" class="btn btn-main lcd fs-7">Szukaj</a>
+	</div>
+	<div id="message-container">
+		<table>
+			<tbody id=messages>
+			</tbody>
+		</table>
+	</div>
+	<form id="fileForm" method="POST" enctype="multipart/form-data" action="/files/upload/" class="mb-2">
+		<input type="file" name="file" class="foo mr-1 ml-4 fs-7" style="float:left; display:inline;">
+		<span id="fileName" class="bold"></span>
+		<input value="SEND FILE" type="button" class="btn btn-main mb-1 lcd fs-7" style="height: 34px;" onclick="sendFile()"></input>
+	</form>
+	<div class="clear: both;"></div>
+	<textarea id="message"></textarea>
+	<button id="sendMessageBtn" class="btn btn-main mt--4 lcd fs-7">SEND</button>
+</body>
+<script>
+	require("./conversation")
+</script>
+</html>

@@ -1,0 +1,4 @@
+
+.icon-anonymous:before { content: '\e800'; } 
+.icon-anonymouses:before { content: '\e801'; }
+.icon-user-delete:before { content: '\e802'; }
