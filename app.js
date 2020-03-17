@@ -63,14 +63,14 @@ function login(e, credential){
   request(`${settings.url}/authorize`, postData, "POST", {"content-type":"application/json"}, (response)=>{
     let data = JSON.parse(response)
     if(data.code!=200){
-      win.sender.send('error-channel', data.message)
+      win.webContents.send('error-channel', data.message)
     }else{
       user=data.body
       user.password = credential.password
       win.loadFile('rendered/main.html')
     }
   }, (code, data)=>{
-    win.sender.send('error-channel', `Error: ${code}. Connection refused!`)
+    win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
   })
 }
 
@@ -81,34 +81,41 @@ ipcMain.on("load-main-channel", (e) =>{
       console.log('Connected: ' + frame);
       stompClient.subscribe(`/message/receiv/${user.id}`, processMessage);
   },(error)=>{console.log(error);});
+  getContactsRequest(e.sender)
+  getConferencesRequest(e.sender)
+})
 
+function getContactsRequest(e){
   request(`${settings.url}/contacts`, null, "GET", null, (chunk)=>{
     let data = JSON.parse(chunk)
     if(data.code!=200){
-      e.sender.send('error-channel', data.message)
+      e.send('error-channel', data.message)
     }else{
-      e.sender.send('users-channel', data.body)
+      e.send('users-channel', data.body)
     }
   }, (code, data)=>{
-    e.sender.send('error-channel', `Error: ${code}. Connection refused!`)
+    e.send('error-channel', `Error: ${code}. Connection refused!`)
   })
+}
+
+function getConferencesRequest(e){
   request(`${settings.url}/conferences`, null, "GET", null, (chunk)=>{
     let data = JSON.parse(chunk)
     if(data.code!=200){
-      e.sender.send('error-channel', data.message)
+      e.send('error-channel', data.message)
     }else{
-      e.sender.send('conferences-channel', data.body)
+      e.send('conferences-channel', data.body)
     }
   }, (code, data)=>{
-    e.sender.send('error-channel', `Error: ${code}. Connection refused!`)
+    e.send('error-channel', `Error: ${code}. Connection refused!`)
   })
-})
+}
 
 ipcMain.on("init-conversation-channel", (e, data) =>{
   let callback = function(messages){
     e.sender.send("init-conversation-response-channel", JSON.stringify({"idUser": user.id, "messages": messages}))
   }
-  getMessages(e.sender.uuid, 0, callback)
+  getMessagesRequest(e.sender.uuid, 0, callback)
 })
 
 ipcMain.on("send-message-channel", (e, data) =>{
@@ -119,6 +126,14 @@ ipcMain.on("send-message-channel", (e, data) =>{
   }
 })
 
+ipcMain.on("load-prev-messages-channel", (e, data) =>{
+  console.log(data.offset);
+  let callback = function(messages){
+    e.sender.send("load-prev-messages-response-channel", JSON.stringify({"messages": messages}))
+  }
+  getMessagesRequest(e.sender.uuid, data.offset, callback)
+})
+
 var processMessage = function(messageResponse){
   let message = JSON.parse(messageResponse.body);
   let sendMessageToConversationView = (window)=>{
@@ -127,7 +142,7 @@ var processMessage = function(messageResponse){
   openConversation(message.uuidConversation, sendMessageToConversationView)
 };
 
-function getMessages(uuid, offset, callback){
+function getMessagesRequest(uuid, offset, callback){
   request(`${settings.url}/messages/get/${uuid}/${offset}`, null, "GET", null, (response)=>{
     let data = JSON.parse(response)
     if(data.code!=200){
@@ -141,17 +156,33 @@ function getMessages(uuid, offset, callback){
     })
 }
 
-ipcMain.on("create-conversation-channel", (e, data) =>{
-  createConversationRequestByUserNicks(data)
+ipcMain.on("open-conversation-channel", (e, uuid) =>{
+  openConversation(uuid)
 })
 
-function createConversationRequestByUserNicks(data){
-  var postData = JSON.stringify(data);
+ipcMain.on("create-conversation-channel", (e, data) =>{
+  createConversationByUserNicksRequest(data)
+})
+
+ipcMain.on("remove-user-from-conference-channel", (e, uuid) =>{
+  request(`${settings.url}/conferences/users/remove`, uuid, "DELETE", null, (response)=>{
+    getConferencesRequest(win.webContents)
+  }, (code, response)=>{
+    win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
+  })
+})
+
+function createConversationByUserNicksRequest(dataRequest){
+  var postData = JSON.stringify(dataRequest);
   request(`${settings.url}/conferences/add`, postData, "POST", {"content-type":"application/json"}, (response)=>{
     let data = JSON.parse(response)
     if(data.code!=200){
       win.webContents.send('error-channel', data.message)
     }else{
+      console.log(dataRequest.asConference)
+      if(dataRequest.asConference){
+        getConferencesRequest(win.webContents)
+      }
       openConversation(data.body.uuid)
     }
     }, (code, response)=>{
@@ -171,6 +202,7 @@ function openConversation(uuid, callbackAfterOpen){
         conversationWindow = new BrowserWindow({
          width: 700,
          height: 800,
+         parent: win,
          title: conversation.name,
          resizable: false,
          webPreferences: {
@@ -180,20 +212,36 @@ function openConversation(uuid, callbackAfterOpen){
        conversationWindow.webContents.uuid = uuid
        conversationWindow.loadFile('rendered/conversation.html')
        conversationWindow.webContents.openDevTools()
-       if(callbackAfterOpen)
+       if(callbackAfterOpen instanceof Function)
         callbackAfterOpen(conversationWindow)
       }
     }
     getConversationRequest(uuid, callback)
  }else{
    found.show();
-   callbackAfterOpen(found)
+   if(callbackAfterOpen instanceof Function) {
+     callbackAfterOpen(found)
+   }
  }
 }
 
 function getConversationRequest(uuid, callback){
-  let conversation
   request(`${settings.url}/conversations/get/${uuid}`, null, "GET", null, callback, (code, response)=>{
+    win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
+  })
+}
+
+ipcMain.on("search-message-channel", (e, data) =>{
+  let callback = function(messages){
+    let mess = JSON.parse(messages)
+    e.sender.send("search-message-response-channel", mess.body)
+  }
+  searchMessageRequest(e.sender.uuid, data.content, callback)
+})
+
+function searchMessageRequest(uuid, content, callback){
+  let conversation
+  request(`${settings.url}/messages/search/${uuid}/${content}`, null, "GET", null, callback, (code, response)=>{
     win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
   })
   return conversation;
@@ -225,9 +273,14 @@ function request(url, postData, method, headers, success, error){
   }
   request.on('response', (response) => {
     if(response.statusCode==200){
+      var body = '';
       response.on('data', (chunk) => {
-        success(chunk)
+        body += chunk;
+
       })
+      response.on('end', function () {
+        success(body)
+      });
     }else{
       var body = '';
       response.on('data', function (chunk) {

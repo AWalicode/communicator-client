@@ -35,10 +35,6 @@
 					</tr>
 				</thead>
 				<tbody id="conferences">
-						<tr>
-							<td ondblclick='openConversation(uuid)' class="noselect pointer color-text conference"><i class="demo-icon icon-anonymouses"></i>
-								conferencename<a href="#" style="float: right;" onclick='removeUserFromConversation("uuid")'><i class="demo-icon icon-user-delete delete-btn"></i></a></td>
-						</tr>
 					</c:forEach>
 				</tbody>
 			</table>
@@ -48,8 +44,8 @@
 	<div id="conversationControl" style="display: none;">
 		<div id="conversationUsers"></div>
 		<input name="conversationName" class="login"
-			placeholder="Conference title" onkeydown="if (event.keyCode == 13) { startConversationBtnClick(); return false;}"/>
-		<button onclick="createConferenceBtnClick()" class="btn btn-lg btn-block btn-main lcd">Call</button>
+			placeholder="Conference title"/>
+		<button id="createConferenceBtn" class="btn btn-lg btn-block btn-main lcd">Call</button>
 	</div>
 </body>
 <script>

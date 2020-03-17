@@ -23,4 +23,5 @@ password.addEventListener("keyup", (event)=>{
 
 ipcRenderer.on("error-channel", (e, message)=>{
   error.textContent = message
+  loginButton.disabled=false;
 })

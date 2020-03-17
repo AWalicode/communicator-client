@@ -4,6 +4,7 @@ const $ = require("jquery");
 ipcRenderer.send("load-main-channel")
 
 ipcRenderer.on("users-channel", (e, users)=>{
+  $("#users").empty()
   users.forEach(user=>{
     addUser(user)
   })
@@ -87,6 +88,8 @@ function clearUserList() {
 }
 
 ipcRenderer.on("conferences-channel", (e, conferences)=>{
+  console.log(conferences)
+  $("#conferences").empty();
   conferences.forEach(conference=>{
     addConference(conference)
   })
@@ -103,37 +106,47 @@ function addConference(conference){
   td.textContent=conference.name
   td.insertBefore(i, td.firstChild);
   td.addEventListener("dblclick", (event)=>{
-    ipcRenderer.send("open-conversation-channel", conference)
+    ipcRenderer.send("open-conversation-channel", conference.uuid)
   })
   aRemove.href="#"
   aRemove.style.float="right"
   aRemove.addEventListener("click", (event)=>{
-    ipcRenderer.send("remove-user-from-conference-channel", conference)
+    ipcRenderer.send("remove-user-from-conference-channel", conference.uuid)
   })
   iRemove.classList+="demo-icon icon-user-delete delete-btn"
   aRemove.appendChild(iRemove)
   td.appendChild(aRemove)
   tr.appendChild(td)
-  users.appendChild(tr);
+  $("#conferences").append(tr);
 }
 
-function createConferenceBtnClick(){
+$("#createConferenceBtn").on("click", ()=>{
 		let childs = $("#conversationUsers").children()
 		let users = []
 		for (var i = 0; i < childs.length; i++){
 		    users.push(childs[i].id.replace('nick-',''));
 		}
 		createConference(users, $("input[name='conversationName']").val())
-	}
+    clearUserList();
+	})
+
+  $("input[name='conversationName']").on("keyup", (event)=>{
+    if (event.keyCode === 13) {
+      event.preventDefault();
+      let childs = $("#conversationUsers").children()
+  		let users = []
+  		for (var i = 0; i < childs.length; i++){
+  		    users.push(childs[i].id.replace('nick-',''));
+  		}
+  		createConference(users, $("input[name='conversationName']").val())
+      clearUserList();
+    }
+  })
 
 function createConversation(users, conversationName){
-  ipcRenderer.send("create-conversation-channel", {"nicks": users, "name": conversationName, "isConference": false})
+  ipcRenderer.send("create-conversation-channel", {"nicks": users, "name": conversationName, "asConference": false})
 }
 
 function createConference(users, conversationName){
-  ipcRenderer.send("create-conference-channel", {"nicks": users, "name": conversationName})
+  ipcRenderer.send("create-conversation-channel", {"nicks": users, "name": conversationName, "asConference": true})
 }
-
-ipcRenderer.on("remove-user-from-conference-response-channel", (e, response)=>{
-  console.log(response)
-})

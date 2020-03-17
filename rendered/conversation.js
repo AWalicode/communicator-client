@@ -2,9 +2,9 @@ const { ipcRenderer } = require('electron')
 const $ = require("jquery");
 
 let idUser
-let loadedMessages = 0
-var lastScrollTop = 0
+let lastScrollTop = 0
 let loaded=false;
+let offset=0
 
 ipcRenderer.send("init-conversation-channel", {})
 
@@ -21,6 +21,7 @@ function showMessage(message) {
 ipcRenderer.on("init-conversation-response-channel", (e, response)=>{
   let data = JSON.parse(response)
   idUser = data.idUser
+  $("#messages").empty()
   loadPrevMessages(data.messages)
   loaded = true;
 })
@@ -39,7 +40,7 @@ $("#sendMessageBtn").on("click", (event)=>{
 function sendMessage() {
 		let message = $("#message").val();
 		$("#message").val('');
-		if(message==null || message=="") return
+		if(message==null || message.trim()=="") return
 	    ipcRenderer.send("send-message-channel", {"message": message})
 }
 
@@ -54,6 +55,21 @@ $("#message-container").scroll(function() {
    lastScrollTop = st;
 });
 
+function getPreviousMessages(){
+  offset+=10
+  ipcRenderer.send("load-prev-messages-channel", {"offset": offset})
+}
+
+ipcRenderer.on("load-prev-messages-response-channel", (e, response)=>{
+  let data = JSON.parse(response)
+	if(data.messages.length!=0){
+		loadPrevMessages(data.messages)
+		loaded = true;
+	} else{
+		loaded = false;
+	}
+})
+
 function loadPrevMessages(mess){
 	mess.forEach(m=> {
 		let tr = createTdFromMessage(m)
@@ -64,10 +80,16 @@ function loadPrevMessages(mess){
 
 function addFoundedMessages(mess){
 	$("#messages").empty()
-	mess.forEach(m=> {
-		let tr = createTdFromMessage(m)
-		$("#messages").prepend(tr);
-	})
+  if(Array.isArray(mess)){
+    mess.forEach(m=> {
+      let tr = createTdFromMessage(m)
+      $("#messages").prepend(tr);
+    })
+  }else{
+    let tr = createTdFromMessage(mess)
+    $("#messages").prepend(tr);
+  }
+
 }
 
 function createTdFromMessage(message){
@@ -100,3 +122,36 @@ function createTdFromMessage(message){
 	tr.appendChild(td)
 	return tr;
 }
+
+$("#searchMessage").on("click", ()=>{
+		let content = $("#searchText").val();
+		if(content == null || content.trim() == "") {
+      ipcRenderer.send("init-conversation-channel", {})
+    }else{
+      loaded = false;
+      ipcRenderer.send("search-message-channel", {"content": content})
+
+    }
+})
+
+$("#searchText").on("keyup", (event)=>{
+  if (event.keyCode === 13) {
+    event.preventDefault();
+    let content = $("#searchText").val();
+    if(content == null || content.trim() == "") content = "i";
+    loaded = false;
+    ipcRenderer.send("search-message-channel", {"content": content})
+    return false;
+  }
+})
+ipcRenderer.on("search-message-response-channel", (e, mess)=>{
+  if(mess.length==0 || Object.keys(mess).length === 0){
+    $("#messages").empty()
+    offset=-10
+    getPreviousMessages()
+    loaded = false;
+  } else{
+    addFoundedMessages(mess)
+    loaded = true;
+  }
+})
