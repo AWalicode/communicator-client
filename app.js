@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain, net, dialog } = require('electron')
 const fs = require('fs')
+var FormData = require('form-data');
+var http = require('http');
 var Stomp = require('stompjs')
 var SockJS = require('sockjs-client')
 
@@ -128,11 +130,73 @@ ipcMain.on("send-message-channel", (e, data) =>{
 })
 
 ipcMain.on("send-file-channel", (e, filename) =>{
-  console.log(filename)
+  if(filename){
+    const form = new FormData();
+    form.append('file', fs.createReadStream(filename));
+    form.append('uuid', e.sender.uuid);
+    let url = new URL(`${settings.url}`)
+    const req = http.request(
+      {
+        host: `${url.hostname}`,
+        port: `${url.port}`,
+        path: `${url.pathname}/files/upload`,
+        auth: `${user.nick}:${user.password}`,
+        method: 'POST',
+        headers: form.getHeaders(),
+      },
+      response => {
+        if(response.statusCode == 200){
+          let data = ""
+          response.on('data', chunk => {
+            data+=chunk
+          })
+          response.on('end', () => {
+            try{
+              stompClient.send("/app/message/send", {}, JSON.stringify({'content': `<a href='#' data-link="${data}" class="linkFile">Pobierz: ${data.replace(/^.*[\\\/]/, '')}</a>`, 'writeTime': new Date().getTime(), 'idUser': user.id, 'uuidConversation': e.sender.uuid}));
+            }catch(e){
+              console.log(e)
+            }
+          })
+        }else{
+            win.webContents.send('error-channel', `Error: ${response.statusCode}. Can't upload file!`)
+        }
+      }
+    );
+    form.pipe(req);
+  }
 })
 
+ipcMain.on("download-file-channel", (e, link) =>{
+  let filename = link.replace(/^.*[\\\/]/, '')
+  var cb = function(r){
+    console.log(r)
+  }
+  dialog.showOpenDialog(win, {properties: ['openDirectory'] }).then(result=>{
+    download(link, result.filePaths[0]+"/"+filename,cb)
+  })
+})
+
+function download(uri, dest, cb) {
+  var file = fs.createWriteStream(dest);
+  let url = new URL(`${uri}`)
+  var request = http.get({
+    host: `${url.hostname}`,
+    port: `${url.port}`,
+    path: `${url.pathname}`,
+    auth: `${user.nick}:${user.password}`,
+    method: 'GET',
+  }, function(response) {
+    response.pipe(file);
+    file.on('finish', function() {
+      file.close(cb);
+    });
+  }).on('error', function(err) {
+    fs.unlink(dest);
+    if (cb) cb(err.message);
+  });
+};
+
 ipcMain.on("load-prev-messages-channel", (e, data) =>{
-  console.log(data.offset);
   let callback = function(messages){
     e.sender.send("load-prev-messages-response-channel", JSON.stringify({"messages": messages}))
   }
@@ -151,7 +215,6 @@ function getMessagesRequest(uuid, offset, callback){
   request(`${settings.url}/messages/get/${uuid}/${offset}`, null, "GET", null, (response)=>{
     let data = JSON.parse(response)
     if(data.code!=200){
-      console.log(data)
       win.webContents.send('error-channel', data.message)
     }else{
       callback(data.body)
@@ -188,7 +251,6 @@ function createConversationByUserNicksRequest(dataRequest){
     if(data.code!=200){
       win.webContents.send('error-channel', data.message)
     }else{
-      console.log(dataRequest.asConference)
       if(dataRequest.asConference){
         getConferencesRequest(win.webContents)
       }

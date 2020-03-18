@@ -10,6 +10,7 @@ ipcRenderer.send("init-conversation-channel", {})
 
 ipcRenderer.on("message-comming-channel", (e, message)=>{
   showMessage(message)
+  processLinkFile()
 })
 
 function showMessage(message) {
@@ -23,6 +24,7 @@ ipcRenderer.on("init-conversation-response-channel", (e, response)=>{
   idUser = data.idUser
   $("#messages").empty()
   loadPrevMessages(data.messages)
+  processLinkFile()
   loaded = true;
 })
 
@@ -39,7 +41,7 @@ $("#sendMessageBtn").on("click", (event)=>{
 
 $("#sendFile").on("click", (event)=>{
   if($("#file").val())
-    ipcRenderer.send("send-file-channel", $("#file").val())
+    ipcRenderer.send("send-file-channel", document.getElementById("file").files[0].path)
 })
 
 function sendMessage() {
@@ -59,6 +61,12 @@ $("#message-container").scroll(function() {
    }
    lastScrollTop = st;
 });
+
+function processLinkFile(){
+  $(".linkFile").on("click", (element)=>{
+    ipcRenderer.send("download-file-channel", $(element.target).data("link"))
+  })
+}
 
 function getPreviousMessages(){
   offset+=10
