@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net } = require('electron')
+const { app, BrowserWindow, ipcMain, net, dialog } = require('electron')
 const fs = require('fs')
 var Stomp = require('stompjs')
 var SockJS = require('sockjs-client')
@@ -68,6 +68,7 @@ function login(e, credential){
       user=data.body
       user.password = credential.password
       win.loadFile('rendered/main.html')
+      win.setTitle(`Communicator - ${user.nick}`)
     }
   }, (code, data)=>{
     win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
@@ -126,6 +127,10 @@ ipcMain.on("send-message-channel", (e, data) =>{
   }
 })
 
+ipcMain.on("send-file-channel", (e, filename) =>{
+  console.log(filename)
+})
+
 ipcMain.on("load-prev-messages-channel", (e, data) =>{
   console.log(data.offset);
   let callback = function(messages){
@@ -167,6 +172,10 @@ ipcMain.on("create-conversation-channel", (e, data) =>{
 ipcMain.on("remove-user-from-conference-channel", (e, uuid) =>{
   request(`${settings.url}/conferences/users/remove`, uuid, "DELETE", null, (response)=>{
     getConferencesRequest(win.webContents)
+    let found = findConversationWindow(uuid)
+    if(found!=null){
+      found.close();
+    }
   }, (code, response)=>{
     win.webContents.send('error-channel', `Error: ${code}. Connection refused!`)
   })

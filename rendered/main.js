@@ -88,7 +88,6 @@ function clearUserList() {
 }
 
 ipcRenderer.on("conferences-channel", (e, conferences)=>{
-  console.log(conferences)
   $("#conferences").empty();
   conferences.forEach(conference=>{
     addConference(conference)

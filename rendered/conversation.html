@@ -18,11 +18,9 @@
 			</tbody>
 		</table>
 	</div>
-	<form id="fileForm" method="POST" enctype="multipart/form-data" action="/files/upload/" class="mb-2">
-		<input type="file" name="file" class="foo mr-1 ml-4 fs-7" style="float:left; display:inline;">
-		<span id="fileName" class="bold"></span>
-		<input value="SEND FILE" type="button" class="btn btn-main mb-1 lcd fs-7" style="height: 34px;" onclick="sendFile()"></input>
-	</form>
+	<input type="file" name="file" id="file" class="inputfile" />
+	<label for="file" class="btn btn-main mb-1 lcd fs-7">Choose a file</label>
+	<button type="button" class="btn btn-main mb-1 lcd fs-7" style="height: 34px;" id="sendFile">SEND FILE</button>
 	<div class="clear: both;"></div>
 	<textarea id="message"></textarea>
 	<button id="sendMessageBtn" class="btn btn-main mt--4 lcd fs-7">SEND</button>

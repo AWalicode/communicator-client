@@ -37,6 +37,11 @@ $("#sendMessageBtn").on("click", (event)=>{
   sendMessage()
 })
 
+$("#sendFile").on("click", (event)=>{
+  if($("#file").val())
+    ipcRenderer.send("send-file-channel", $("#file").val())
+})
+
 function sendMessage() {
 		let message = $("#message").val();
 		$("#message").val('');
@@ -155,3 +160,17 @@ ipcRenderer.on("search-message-response-channel", (e, mess)=>{
     loaded = true;
   }
 })
+
+var inputs = document.querySelectorAll( '.inputfile' );
+Array.prototype.forEach.call( inputs, function( input )
+{
+	var label	 = input.nextElementSibling,
+		labelVal = label.textContent;
+
+	input.addEventListener( 'change', function( e )
+	{
+    let filename = e.target.value.replace(/^.*[\\\/]/, '')
+    if( filename )
+			label.textContent = filename;
+	});
+});
